@@ -138,11 +138,8 @@ impl<'a> DownloadManager<'a> {
                 self.macos_sdk()?;
             }
             Platform::Android => {
-                for arch in self.env().target().archs() {
-                    self.rustup_target(match *arch {
-                        crate::Arch::Arm64 => "aarch64-linux-android",
-                        crate::Arch::X64 => "x86_64-linux-android",
-                    })?;
+                for target in self.env().target().compile_targets() {
+                    self.rustup_target(target.rust_triple()?)?;
                 }
                 self.android_ndk()?;
                 self.android_jar()?;
