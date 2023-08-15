@@ -57,6 +57,8 @@ impl Platform {
             Platform::Macos
         } else if cfg!(target_os = "windows") {
             Platform::Windows
+        } else if cfg!(target_os = "android") {
+            Platform::Android
         } else {
             anyhow::bail!("unsupported host");
         })
