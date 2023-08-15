@@ -114,6 +114,29 @@ impl<'a> DownloadManager<'a> {
         result
     }
 
+    fn rust_sysroot(&self) -> Result<String> {
+        let output = Command::new("rustc")
+            .arg("--print")
+            .arg("sysroot")
+            .output()?;
+
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+
+    fn target_installed(&self, target: &str) -> Result<bool> {
+        let sysroot = self.rust_sysroot()?;
+        let path = format!(
+            "{0}{1}lib{1}librs{1}{2}",
+            sysroot,
+            std::path::MAIN_SEPARATOR,
+            target
+        );
+        println!("#### {path}");
+        let path = Path::new(&path);
+
+        Ok(path.exists() && path.is_dir())
+    }
+
     fn rustup_target(&self, target: &str) -> Result<()> {
         let status = Command::new("rustup")
             .arg("target")
@@ -139,7 +162,10 @@ impl<'a> DownloadManager<'a> {
             }
             Platform::Android => {
                 for target in self.env().target().compile_targets() {
-                    self.rustup_target(target.rust_triple()?)?;
+                    let triple = target.rust_triple()?;
+                    if !self.target_installed(triple)? {
+                        self.rustup_target(triple)?;
+                    }
                 }
                 self.android_ndk()?;
                 self.android_jar()?;
