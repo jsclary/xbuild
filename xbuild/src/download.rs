@@ -120,7 +120,7 @@ impl<'a> DownloadManager<'a> {
             .arg("sysroot")
             .output()?;
 
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
     fn target_installed(&self, target: &str) -> Result<bool> {
