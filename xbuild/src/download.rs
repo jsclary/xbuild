@@ -126,7 +126,7 @@ impl<'a> DownloadManager<'a> {
     fn target_installed(&self, target: &str) -> Result<bool> {
         let sysroot = self.rust_sysroot()?;
         let path = format!(
-            "{0}{1}lib{1}librs{1}{2}",
+            "{0}{1}lib{1}rustlib{1}{2}",
             sysroot,
             std::path::MAIN_SEPARATOR,
             target
