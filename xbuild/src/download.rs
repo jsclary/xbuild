@@ -114,23 +114,20 @@ impl<'a> DownloadManager<'a> {
         result
     }
 
-    fn rust_sysroot(&self) -> Result<String> {
+    fn compiler_info(&self, compiler_info: &str) -> Result<String> {
         let output = Command::new("rustc")
             .arg("--print")
-            .arg("sysroot")
+            .arg(compiler_info)
             .output()?;
 
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        Ok(String::from_utf8_lossy(&output.stdout)
+            .trim_end()
+            .to_string())
     }
 
     fn target_installed(&self, target: &str) -> Result<bool> {
-        let sysroot = self.rust_sysroot()?;
-        let path = format!(
-            "{0}{1}lib{1}rustlib{1}{2}",
-            sysroot,
-            std::path::MAIN_SEPARATOR,
-            target
-        );
+        let libdir = self.compiler_info("target-libdir")?;
+        let path = format!("{}{}{}", libdir, std::path::MAIN_SEPARATOR, target);
         println!("#### {path}");
         let path = Path::new(&path);
 
