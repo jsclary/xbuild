@@ -114,24 +114,31 @@ impl<'a> DownloadManager<'a> {
         result
     }
 
-    fn compiler_info(&self, compiler_info: &str) -> Result<String> {
-        let output = Command::new("rustc")
-            .arg("--print")
-            .arg(compiler_info)
-            .output()?;
+    fn target_libdir(&self, target: Option<&str>) -> Result<String> {
+        let output = match target {
+            Some(target) => Command::new("rustc")
+                .arg("--print")
+                .arg("target-libdir")
+                .arg("--target")
+                .arg(target)
+                .output()?,
+            None => Command::new("rustc")
+                .arg("--print")
+                .arg("target-libdir")
+                .output()?,
+        };
 
         Ok(String::from_utf8_lossy(&output.stdout)
             .trim_end()
             .to_string())
     }
 
-    fn target_installed(&self, target: &str) -> Result<bool> {
-        let libdir = self.compiler_info("target-libdir")?;
-        let path = format!("{}{}{}", libdir, std::path::MAIN_SEPARATOR, target);
-        println!("#### {path}");
-        let path = Path::new(&path);
+    fn target_installed(&self, target: Option<&str>) -> Result<bool> {
+        let target_libdir = self.target_libdir(target)?;
+        println!("#### {target_libdir}");
+        let target_libdir = Path::new(&target_libdir);
 
-        Ok(path.exists() && path.is_dir())
+        Ok(target_libdir.exists() && target_libdir.is_dir())
     }
 
     fn rustup_target(&self, target: &str) -> Result<()> {
@@ -160,7 +167,7 @@ impl<'a> DownloadManager<'a> {
             Platform::Android => {
                 for target in self.env().target().compile_targets() {
                     let triple = target.rust_triple()?;
-                    if !self.target_installed(triple)? {
+                    if !self.target_installed(Some(triple))? {
                         self.rustup_target(triple)?;
                     }
                 }
