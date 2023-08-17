@@ -114,7 +114,9 @@ impl<'a> DownloadManager<'a> {
         result
     }
 
+    /// Determines where rustc thinks libraries should be installed for a given triple.
     fn target_libdir(&self, target: Option<&str>) -> Result<String> {
+        // TODO: There is unfortunate duplication here that should be eliminated.
         let output = match target {
             Some(target) => Command::new("rustc")
                 .arg("--print")
@@ -128,17 +130,33 @@ impl<'a> DownloadManager<'a> {
                 .output()?,
         };
 
+        // Return the output as a string without the trailing carriage return.
         Ok(String::from_utf8_lossy(&output.stdout)
             .trim_end()
             .to_string())
     }
 
+    /// Checks if rust libraries are installed for a given target triple.
     fn target_installed(&self, target: Option<&str>) -> Result<bool> {
         let target_libdir = self.target_libdir(target)?;
         println!("#### {target_libdir}");
         let target_libdir = Path::new(&target_libdir);
 
+        // TODO: Consider a more thorough check of the contents.
         Ok(target_libdir.exists() && target_libdir.is_dir())
+    }
+
+    /// Installs rust libraries for all targeted triples
+    fn rust_targets(&self) -> Result<()> {
+        for target in self.env().target().compile_targets() {
+            let triple = target.rust_triple()?;
+            if !self.target_installed(Some(triple))? {
+                // TODO: Seriously consider removing the rustup dependency
+                // in favor of downloading the target archives ourselves.
+                self.rustup_target(triple)?;
+            }
+        }
+        Ok(())
     }
 
     fn rustup_target(&self, target: &str) -> Result<()> {
@@ -152,30 +170,24 @@ impl<'a> DownloadManager<'a> {
     }
 
     pub fn prefetch(&self) -> Result<()> {
+        // Ensure that rust has the necessary target libraries.
+        self.rust_targets()?;
+
         match self.env().target().platform() {
             Platform::Linux if Platform::host()? != Platform::Linux => {
                 anyhow::bail!("cross compiling to linux is not yet supported");
             }
             Platform::Windows if Platform::host()? != Platform::Windows => {
-                self.rustup_target("x86_64-pc-windows-msvc")?;
                 self.windows_sdk()?;
             }
             Platform::Macos if Platform::host()? != Platform::Macos => {
-                self.rustup_target("x86_64-apple-darwin")?;
                 self.macos_sdk()?;
             }
             Platform::Android => {
-                for target in self.env().target().compile_targets() {
-                    let triple = target.rust_triple()?;
-                    if !self.target_installed(Some(triple))? {
-                        self.rustup_target(triple)?;
-                    }
-                }
                 self.android_ndk()?;
                 self.android_jar()?;
             }
             Platform::Ios => {
-                self.rustup_target("aarch64-apple-ios")?;
                 self.ios_sdk()?;
                 if let Some(device) = self.env().target().device() {
                     let (major, minor) = device.ios_product_version()?;
